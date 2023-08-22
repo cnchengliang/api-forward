@@ -15,13 +15,6 @@ CHAT_COMPLETION_ROUTE = (
     os.environ.get("CHAT_COMPLETION_ROUTE", "").strip() or "/v1/chat/completions"
 )
 ENV_VAR_SEP = ","
-OPENAI_BASE_URL = env2list("OPENAI_BASE_URL", sep=ENV_VAR_SEP) or [
-    "https://api.openai.com"
-]
-
-OPENAI_ROUTE_PREFIX = [
-    format_route_prefix(i) for i in env2list("OPENAI_ROUTE_PREFIX", sep=ENV_VAR_SEP)
-] or ['/']
 
 EXTRA_BASE_URL = env2list("EXTRA_BASE_URL", sep=ENV_VAR_SEP)
 EXTRA_ROUTE_PREFIX = [
@@ -29,13 +22,9 @@ EXTRA_ROUTE_PREFIX = [
 ]
 
 LOG_CHAT = os.environ.get("LOG_CHAT", "False").strip().lower() == "true"
-if LOG_CHAT:
-    setting_log(openai_route_prefix=OPENAI_ROUTE_PREFIX)
-
 IP_WHITELIST = env2list("IP_WHITELIST", sep=ENV_VAR_SEP)
 IP_BLACKLIST = env2list("IP_BLACKLIST", sep=ENV_VAR_SEP)
 
-OPENAI_API_KEY = env2list("OPENAI_API_KEY", sep=ENV_VAR_SEP)
 FWD_KEY = env2list("FORWARD_KEY", sep=ENV_VAR_SEP)
 
 PROXY = os.environ.get("PROXY", "").strip() or None
@@ -46,16 +35,7 @@ if PROXY:
 styles = itertools.cycle(
     ["#7CD9FF", "#BDADFF", "#9EFFE3", "#f1b8e4", "#F5A88E", "#BBCA89"]
 )
-for base_url, route_prefix in zip(OPENAI_BASE_URL, OPENAI_ROUTE_PREFIX):
-    print_startup_info(
-        base_url,
-        route_prefix,
-        OPENAI_API_KEY,
-        FWD_KEY,
-        LOG_CHAT,
-        style=next(styles),
-        **additional_start_info,
-    )
+
 for base_url, route_prefix in zip(EXTRA_BASE_URL, EXTRA_ROUTE_PREFIX):
     print_startup_info(
         base_url,

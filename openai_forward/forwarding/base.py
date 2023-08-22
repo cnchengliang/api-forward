@@ -11,7 +11,6 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from ..content import ChatSaver, WhisperSaver
 from ..helper import async_retry
 from .settings import *
 
@@ -86,6 +85,7 @@ class ForwardingBase:
                 content=request.stream(),
                 timeout=self.timeout,
             )
+            print(req)
             return await self.client.send(req, stream=True)
 
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
@@ -176,153 +176,6 @@ class ForwardingBase:
 
         return StreamingResponse(
             self.aiter_bytes(r),
-            status_code=r.status_code,
-            media_type=r.headers.get("content-type"),
-        )
-
-
-class OpenaiBase(ForwardingBase):
-    _cycle_api_key = cycle(OPENAI_API_KEY)
-    _no_auth_mode = OPENAI_API_KEY != [] and FWD_KEY == set()
-
-    chatsaver: ChatSaver = None
-    whispersaver: WhisperSaver = None
-
-    def _add_result_log(
-        self, byte_list: List[bytes], uid: str, route_path: str, request_method: str
-    ):
-        """
-        Adds a result log for the given byte list, uid, route path, and request method.
-
-        Args:
-            byte_list (List[bytes]): The list of bytes to be processed.
-            uid (str): The unique identifier.
-            route_path (str): The route path.
-            request_method (str): The request method.
-
-        Returns:
-            None
-        """
-        try:
-            if LOG_CHAT and request_method == "POST":
-                if route_path == CHAT_COMPLETION_ROUTE:
-                    target_info = self.chatsaver.parse_iter_bytes(byte_list)
-                    self.chatsaver.log_chat(
-                        {target_info["role"]: target_info["content"], "uid": uid}
-                    )
-
-                elif route_path.startswith("/v1/audio/"):
-                    self.whispersaver.add_log(b"".join([_ for _ in byte_list]))
-
-                else:
-                    ...
-        except Exception as e:
-            logger.warning(f"log chat (not) error:\n{traceback.format_exc()}")
-
-    async def _add_payload_log(self, request: Request, url_path: str):
-        """
-        Adds a payload log for the given request.
-
-        Args:
-            request (Request): The request object.
-            url_path (str): The URL path of the request.
-
-        Returns:
-            str: The unique identifier (UID) of the payload log, which is used to match the chat result log.
-
-        Raises:
-            Suppress all errors.
-
-        Notes:
-            - If `LOG_CHAT` is True and the request method is "POST", the chat payload will be logged.
-        """
-        uid = None
-        if LOG_CHAT and request.method == "POST":
-            try:
-                if url_path == CHAT_COMPLETION_ROUTE:
-                    chat_info = await self.chatsaver.parse_payload(request)
-                    uid = chat_info.get("uid")
-                    if chat_info:
-                        self.chatsaver.log_chat(chat_info)
-
-                elif url_path.startswith("/v1/audio/"):
-                    uid = uuid.uuid4().__str__()
-
-                else:
-                    ...
-
-            except Exception as e:
-                logger.warning(
-                    f"log chat error:\nhost:{request.client.host} method:{request.method}: {traceback.format_exc()}"
-                )
-        return uid
-
-    async def openai_aiter_bytes(
-        self, r: httpx.Response, request: Request, route_path: str, uid: str
-    ):
-        """
-        Asynchronously iterates over the bytes of the response and yields each chunk.
-
-        Args:
-            r (httpx.Response): The HTTP response object.
-            request (Request): The original request object.
-            route_path (str): The route path.
-            uid (str): The unique identifier.
-
-        Returns:
-            A generator that yields each chunk of bytes from the response.
-        """
-        byte_list = []
-        start_time = time.perf_counter()
-        async for chunk in r.aiter_bytes():
-            byte_list.append(chunk)
-            if TOKEN_INTERVAL > 0:
-                current_time = time.perf_counter()
-                delta = current_time - start_time
-                delay = TOKEN_INTERVAL - delta
-                if delay > 0:
-                    await asyncio.sleep(delay)
-                start_time = time.perf_counter()
-            yield chunk
-
-        await r.aclose()
-
-        if uid:
-            if r.is_success:
-                self._add_result_log(byte_list, uid, route_path, request.method)
-            else:
-                response_info = b"".join([_ for _ in byte_list])
-                logger.warning(f'uid: {uid}\n' f'{response_info}')
-
-    async def reverse_proxy(self, request: Request):
-        """
-        Reverse proxies the given requests.
-
-        Args:
-            request (Request): The incoming request object.
-
-        Returns:
-            StreamingResponse: The response from the reverse proxied server, as a streaming response.
-        """
-        client_config = self.prepare_client(request)
-        url_path = client_config["url_path"]
-
-        def set_apikey_from_preset():
-            nonlocal client_config
-            auth_prefix = "Bearer "
-            auth = client_config["auth"]
-            if self._no_auth_mode or auth and auth[len(auth_prefix) :] in FWD_KEY:
-                auth = auth_prefix + next(self._cycle_api_key)
-                client_config["headers"]["Authorization"] = auth
-
-        set_apikey_from_preset()
-
-        uid = await self._add_payload_log(request, url_path)
-
-        r = await self.try_send(client_config, request)
-
-        return StreamingResponse(
-            self.openai_aiter_bytes(r, request, url_path, uid),
             status_code=r.status_code,
             media_type=r.headers.get("content-type"),
         )
