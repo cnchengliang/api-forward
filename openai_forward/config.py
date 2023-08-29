@@ -9,19 +9,21 @@ from rich import print
 from rich.panel import Panel
 from rich.table import Table
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(".env")
+except Exception:
+    ...
+
 
 def print_startup_info(
-    base_url, route_prefix, api_key, fwd_key, log_chat, /, style, **kwargs
+        base_url, route_prefix, api_key, fwd_key, log_chat, /, style, **kwargs
 ):
     """
     Prints the startup information of the application.
     """
-    try:
-        from dotenv import load_dotenv
 
-        load_dotenv(".env")
-    except Exception:
-        ...
     route_prefix = route_prefix or "/"
     if not isinstance(api_key, str):
         api_key = True if len(api_key) else False
@@ -99,10 +101,10 @@ class InterceptHandler(logging.Handler):
 
 
 def setting_log(
-    save_file=False,
-    openai_route_prefix=None,
-    log_name="openai_forward",
-    multi_process=True,
+        save_file=False,
+        openai_route_prefix=None,
+        log_name="openai_forward",
+        multi_process=True,
 ):
     """
     Configures the logging settings for the application.

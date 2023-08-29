@@ -19,6 +19,7 @@ class ForwardingBase:
     BASE_URL = None
     ROUTE_PREFIX = None
     client: httpx.AsyncClient = None
+    _cycle_openai_api_key = cycle(OPENAI_API_KEY)
 
     if IP_BLACKLIST or IP_WHITELIST:
         validate_host = True
@@ -147,6 +148,8 @@ class ForwardingBase:
         url = httpx.URL(path=url_path, query=request.url.query.encode("utf-8"))
         headers = dict(request.headers)
         auth = headers.pop("authorization", "")
+        if not auth:
+            auth = "Bearer " + next(self._cycle_openai_api_key)
         content_type = headers.pop("content-type", "application/json")
         auth_headers_dict = {"Content-Type": content_type, "Authorization": auth}
         client_config = {

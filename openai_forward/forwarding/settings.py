@@ -25,6 +25,7 @@ LOG_CHAT = os.environ.get("LOG_CHAT", "False").strip().lower() == "true"
 IP_WHITELIST = env2list("IP_WHITELIST", sep=ENV_VAR_SEP)
 IP_BLACKLIST = env2list("IP_BLACKLIST", sep=ENV_VAR_SEP)
 
+OPENAI_API_KEY = env2list("OPENAI_API_KEY", sep=ENV_VAR_SEP)
 FWD_KEY = env2list("FORWARD_KEY", sep=ENV_VAR_SEP)
 
 PROXY = os.environ.get("PROXY", "").strip() or None
@@ -74,10 +75,10 @@ if TOKEN_RATE_LIMIT:
 else:
     TOKEN_INTERVAL = 0
 
-print_rate_limit_info(
-    route_rate_limit_conf,
-    strategy=RATE_LIMIT_STRATEGY,
-    global_rate_limit=GLOBAL_RATE_LIMIT if GLOBAL_RATE_LIMIT else 'inf',
-    token_rate_limit=TOKEN_RATE_LIMIT if TOKEN_RATE_LIMIT else 'inf',
-    token_interval_time=f"{TOKEN_INTERVAL:.4f}s",
-)
+# print_rate_limit_info(
+#     route_rate_limit_conf,
+#     strategy=RATE_LIMIT_STRATEGY,
+#     global_rate_limit=GLOBAL_RATE_LIMIT if GLOBAL_RATE_LIMIT else 'inf',
+#     token_rate_limit=TOKEN_RATE_LIMIT if TOKEN_RATE_LIMIT else 'inf',
+#     token_interval_time=f"{TOKEN_INTERVAL:.4f}s",
+# )
